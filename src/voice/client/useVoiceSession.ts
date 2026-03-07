@@ -1,148 +1,148 @@
-import { useState, useCallback, useRef } from 'react';
-import AgoraRTC, { type IMicrophoneAudioTrack } from 'agora-rtc-sdk-ng';
-import { getAgoraClient, getAppId } from './agoraClient';
-import type {
-  VoiceSessionStatus,
-  VoiceSessionCallbacks,
-  VoiceEvent,
-} from '../types';
+import { useState, useCallback, useRef } from 'react'
+import {
+  WsSessionAdapter,
+  type WsSessionAdapterCallbacks,
+} from '#/features/realtime/ws-session-adapter'
+import type { VoiceSessionStatus, VoiceSessionCallbacks } from '../types'
 
-const API_BASE = import.meta.env.VITE_API_BASE || '';
+const API_BASE = import.meta.env.VITE_API_BASE || ''
 
 export function useVoiceSession(callbacks?: VoiceSessionCallbacks) {
-  const [status, setStatus] = useState<VoiceSessionStatus>('idle');
-  const [isMuted, setIsMuted] = useState(false);
-  const agentIdRef = useRef<string | null>(null);
-  const micTrackRef = useRef<IMicrophoneAudioTrack | null>(null);
-  const channelRef = useRef<string | null>(null);
-
-  const emitEvent = useCallback(
-    (event: VoiceEvent) => {
-      callbacks?.onEvent?.(event);
-    },
-    [callbacks],
-  );
+  const [status, setStatus] = useState<VoiceSessionStatus>('idle')
+  const [isMuted, setIsMuted] = useState(false)
+  const sessionIdRef = useRef<string | null>(null)
+  const adapterRef = useRef<WsSessionAdapter | null>(null)
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null)
+  const streamRef = useRef<MediaStream | null>(null)
 
   const updateStatus = useCallback(
     (newStatus: VoiceSessionStatus) => {
-      setStatus(newStatus);
-      callbacks?.onStatusChange?.(newStatus);
+      setStatus(newStatus)
+      callbacks?.onStatusChange?.(newStatus)
     },
     [callbacks],
-  );
+  )
 
   const connect = useCallback(
     async (topic?: string) => {
-      const client = getAgoraClient();
-      updateStatus('connecting');
+      updateStatus('connecting')
 
       try {
-        // 1. Get token from server
-        const tokenRes = await fetch(`${API_BASE}/api/token`, {
+        // 1. Create session via REST
+        const res = await fetch(`${API_BASE}/api/session`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({}),
-        });
-        if (!tokenRes.ok) throw new Error('Failed to get token');
-        const { token, channel, uid } = await tokenRes.json();
-        channelRef.current = channel;
+          body: JSON.stringify({ topic }),
+        })
+        if (!res.ok) throw new Error('Failed to create session')
+        const { sessionId } = await res.json()
+        sessionIdRef.current = sessionId
 
-        // 2. Join the Agora RTC channel
-        await client.join(getAppId(), channel, token, uid);
-
-        // 3. Create and publish microphone track
-        const micTrack = await AgoraRTC.createMicrophoneAudioTrack();
-        micTrackRef.current = micTrack;
-        await client.publish([micTrack]);
-
-        // 4. Listen for the AI agent's audio
-        client.on('user-published', async (user, mediaType) => {
-          await client.subscribe(user, mediaType);
-          if (mediaType === 'audio') {
-            user.audioTrack?.play();
-            emitEvent({
-              type: 'agent_joined',
+        // 2. Create and connect WebSocket adapter
+        const adapterCallbacks: WsSessionAdapterCallbacks = {
+          onTranscript: (data) => {
+            callbacks?.onEvent?.({
+              type: 'transcript',
               timestamp: Date.now(),
-              data: { uid: user.uid },
-            });
+              data,
+            })
+          },
+          onAiResponse: (text) => {
+            callbacks?.onEvent?.({
+              type: 'agent_state_change',
+              timestamp: Date.now(),
+              data: { response: text },
+            })
+          },
+          onError: (message) => {
+            callbacks?.onEvent?.({
+              type: 'error',
+              timestamp: Date.now(),
+              data: { error: message },
+            })
+          },
+        }
+
+        const adapter = new WsSessionAdapter(sessionId, adapterCallbacks)
+        adapterRef.current = adapter
+        await adapter.connect()
+
+        // 3. Get microphone and start streaming audio
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+        streamRef.current = stream
+
+        const recorder = new MediaRecorder(stream, {
+          mimeType: 'audio/webm;codecs=opus',
+        })
+        recorder.ondataavailable = (e) => {
+          if (e.data.size > 0) {
+            adapter.sendAudio(e.data)
           }
-        });
+        }
+        recorder.start(100) // 100ms chunks
+        mediaRecorderRef.current = recorder
 
-        client.on('user-left', (user) => {
-          emitEvent({
-            type: 'agent_left',
-            timestamp: Date.now(),
-            data: { uid: user.uid },
-          });
-        });
-
-        // 5. Start the AI agent via server
-        const agentRes = await fetch(`${API_BASE}/api/agent/start`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            channelName: channel,
-            userUid: uid,
-            topic,
-          }),
-        });
-        if (!agentRes.ok) throw new Error('Failed to start agent');
-        const { agentId } = await agentRes.json();
-        agentIdRef.current = agentId;
-
-        updateStatus('connected');
+        updateStatus('connected')
       } catch (error) {
-        emitEvent({
+        callbacks?.onEvent?.({
           type: 'error',
           timestamp: Date.now(),
           data: { error: String(error) },
-        });
-        updateStatus('disconnected');
-        throw error;
+        })
+        updateStatus('disconnected')
+        throw error
       }
     },
-    [updateStatus, emitEvent],
-  );
+    [updateStatus, callbacks],
+  )
 
   const disconnect = useCallback(async () => {
-    const client = getAgoraClient();
+    // Stop recording
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+      mediaRecorderRef.current.stop()
+      mediaRecorderRef.current = null
+    }
 
-    // Stop agent
-    if (agentIdRef.current) {
+    // Close mic stream
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach((t) => t.stop())
+      streamRef.current = null
+    }
+
+    // Disconnect WebSocket adapter
+    if (adapterRef.current) {
+      adapterRef.current.disconnect()
+      adapterRef.current = null
+    }
+
+    // Delete session via REST
+    if (sessionIdRef.current) {
       try {
-        await fetch(`${API_BASE}/api/agent/stop`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ agentId: agentIdRef.current }),
-        });
+        await fetch(`${API_BASE}/api/session/${sessionIdRef.current}`, {
+          method: 'DELETE',
+        })
       } catch {
-        // Best-effort — agent will auto-stop on idle timeout
+        // Best-effort cleanup
       }
-      agentIdRef.current = null;
+      sessionIdRef.current = null
     }
 
-    // Clean up mic track
-    if (micTrackRef.current) {
-      micTrackRef.current.close();
-      micTrackRef.current = null;
-    }
-
-    // Leave channel
-    client.removeAllListeners();
-    await client.leave();
-
-    channelRef.current = null;
-    setIsMuted(false);
-    updateStatus('disconnected');
-  }, [updateStatus]);
+    setIsMuted(false)
+    updateStatus('disconnected')
+  }, [updateStatus])
 
   const toggleMute = useCallback(() => {
-    if (micTrackRef.current) {
-      const newMuted = !isMuted;
-      micTrackRef.current.setEnabled(!newMuted);
-      setIsMuted(newMuted);
+    if (streamRef.current) {
+      const newMuted = !isMuted
+      streamRef.current.getAudioTracks().forEach((track) => {
+        track.enabled = !newMuted
+      })
+      setIsMuted(newMuted)
     }
-  }, [isMuted]);
+  }, [isMuted])
+
+  /** Expose the adapter so parent components can subscribe to graph events */
+  const getAdapter = useCallback(() => adapterRef.current, [])
 
   return {
     status,
@@ -150,5 +150,6 @@ export function useVoiceSession(callbacks?: VoiceSessionCallbacks) {
     connect,
     disconnect,
     toggleMute,
-  };
+    getAdapter,
+  }
 }

@@ -1,84 +1,25 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { motion } from 'motion/react'
 import { Mic } from 'lucide-react'
 
 import { Button } from '#/components/ui/button'
 import { cn } from '#/lib/utils'
-import { DevPanel } from '#/features/dev/components/dev-panel'
 import { GraphCanvas } from '#/features/graph/components/graph-canvas'
 import { useGraphStore } from '#/features/graph/store/graph-store'
-import { ActivityPanel } from '#/features/activity/components/activity-panel'
 import { useVoiceSession } from '#/voice/client/useVoiceSession'
-import { WsSessionAdapter } from '#/features/realtime/ws-session-adapter'
-import type { TranscriptData } from '#/features/realtime/ws-session-adapter'
 
-export type CtaPreviewState =
-  | 'centered-idle'
-  | 'docked-idle'
-  | 'docked-recording'
-
-export interface TranscriptEntry {
-  id: number
-  text: string
-  is_final: boolean
-  timestamp: number
-}
-
-export interface AiResponseEntry {
-  id: number
-  text: string
-  timestamp: number
-}
+type CtaState = 'centered-idle' | 'docked-idle' | 'docked-recording'
 
 export function WorkspaceShell() {
-  const [ctaState, setCtaState] = useState<CtaPreviewState>('centered-idle')
+  const [ctaState, setCtaState] = useState<CtaState>('centered-idle')
   const isDocked = ctaState !== 'centered-idle'
   const isRecording = ctaState === 'docked-recording'
-
-  // Transcript + AI response state for the activity panel
-  const [transcripts, setTranscripts] = useState<TranscriptEntry[]>([])
-  const [aiResponses, setAiResponses] = useState<AiResponseEntry[]>([])
-  const [interimText, setInterimText] = useState('')
-  const nextIdRef = useRef(0)
 
   const applyEvent = useGraphStore((state) => state.applyEvent)
   const setConnectionStatus = useGraphStore((state) => state.setConnectionStatus)
 
-  const handleTranscript = useCallback((data: TranscriptData) => {
-    if (data.is_final && data.transcript.trim()) {
-      setTranscripts((prev) => [
-        ...prev,
-        {
-          id: nextIdRef.current++,
-          text: data.transcript,
-          is_final: true,
-          timestamp: Date.now(),
-        },
-      ])
-      setInterimText('')
-    } else if (!data.is_final) {
-      setInterimText(data.transcript)
-    }
-  }, [])
-
-  const handleAiResponse = useCallback((text: string) => {
-    setAiResponses((prev) => [
-      ...prev,
-      {
-        id: nextIdRef.current++,
-        text,
-        timestamp: Date.now(),
-      },
-    ])
-  }, [])
-
   // Voice session hook
   const { status, connect, disconnect, getAdapter } = useVoiceSession({
-    onEvent: (event) => {
-      if (event.type === 'transcript' && event.data) {
-        handleTranscript(event.data as TranscriptData)
-      }
-    },
     onStatusChange: (s) => {
       if (s === 'connected') setConnectionStatus('connected')
       else if (s === 'connecting') setConnectionStatus('connecting')
@@ -91,26 +32,9 @@ export function WorkspaceShell() {
     const adapter = getAdapter()
     if (!adapter || status !== 'connected') return
 
-    // Subscribe graph events → store
     const unsubGraph = adapter.subscribe(applyEvent)
-
-    // Subscribe AI responses via a fresh adapter callback
-    // We need to access the adapter's internal callbacks, so we
-    // monkey-patch the onAiResponse callback
-    const origCallbacks = (adapter as any).callbacks
-    const origOnAiResponse = origCallbacks?.onAiResponse
-    origCallbacks.onAiResponse = (text: string) => {
-      origOnAiResponse?.(text)
-      handleAiResponse(text)
-    }
-
-    return () => {
-      unsubGraph()
-      if (origCallbacks) {
-        origCallbacks.onAiResponse = origOnAiResponse
-      }
-    }
-  }, [status, getAdapter, applyEvent, handleAiResponse])
+    return () => { unsubGraph() }
+  }, [status, getAdapter, applyEvent])
 
   const handleButtonClick = useCallback(async () => {
     if (ctaState === 'centered-idle') {
@@ -149,24 +73,6 @@ export function WorkspaceShell() {
       >
         <GraphCanvas className="h-screen rounded-none" />
       </motion.div>
-      <DevPanel ctaState={ctaState} onCtaStateChange={setCtaState} />
-
-      {/* Activity panel — slides in when recording */}
-      {isDocked && (
-        <motion.div
-          initial={{ opacity: 0, x: 18 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ duration: 0.35, delay: 0.12, ease: [0.2, 1, 0.3, 1] }}
-          className="absolute bottom-20 right-4 z-20 w-[22rem] sm:right-6"
-        >
-          <ActivityPanel
-            transcripts={transcripts}
-            aiResponses={aiResponses}
-            interimText={interimText}
-            isRecording={isRecording}
-          />
-        </motion.div>
-      )}
 
       <motion.div
         layout

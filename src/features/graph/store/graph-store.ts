@@ -74,6 +74,16 @@ const initialState: GraphStoreState = {
   lastEventAt: null,
 }
 
+// Debounced layout: batch rapid events and only run layout once
+let layoutTimer: ReturnType<typeof setTimeout> | null = null
+function scheduleLayout(store: typeof useGraphStore) {
+  if (layoutTimer) clearTimeout(layoutTimer)
+  layoutTimer = setTimeout(() => {
+    layoutTimer = null
+    store.getState().triggerLayout()
+  }, 80)
+}
+
 function maybeLayout(
   state: GraphStoreState,
   nodes: GraphNode[],
@@ -260,6 +270,7 @@ export const useGraphStore = create<GraphStore>((set) => ({
     )
   },
   applyEvent: (event) => {
+    // Apply data immediately (no layout), then schedule a debounced layout
     set((state) => {
       switch (event.type) {
         case 'graph.node.upsert': {
@@ -279,33 +290,17 @@ export const useGraphStore = create<GraphStore>((set) => ({
             : [...state.nodes, createGraphNode(event.node, event.positionHint)]
 
           return {
-            ...maybeLayout(
-              state,
-              nextNodes,
-              state.edges,
-              state.layoutDirection,
-              event.relayout ?? state.autoLayout,
-            ),
+            nodes: nextNodes,
             lastEventId: event.eventId,
             lastEventAt: event.occurredAt,
           }
         }
         case 'graph.node.remove': {
-          const nextNodes = state.nodes.filter(
-            (node) => node.id !== event.nodeId,
-          )
-          const nextEdges = state.edges.filter(
-            (edge) =>
-              edge.source !== event.nodeId && edge.target !== event.nodeId,
-          )
-
           return {
-            ...maybeLayout(
-              state,
-              nextNodes,
-              nextEdges,
-              state.layoutDirection,
-              event.relayout ?? state.autoLayout,
+            nodes: state.nodes.filter((node) => node.id !== event.nodeId),
+            edges: state.edges.filter(
+              (edge) =>
+                edge.source !== event.nodeId && edge.target !== event.nodeId,
             ),
             lastEventId: event.eventId,
             lastEventAt: event.occurredAt,
@@ -321,43 +316,21 @@ export const useGraphStore = create<GraphStore>((set) => ({
             : [...state.edges, createGraphEdge(event.edge)]
 
           return {
-            ...maybeLayout(
-              state,
-              state.nodes,
-              nextEdges,
-              state.layoutDirection,
-              event.relayout ?? state.autoLayout,
-            ),
+            edges: nextEdges,
             lastEventId: event.eventId,
             lastEventAt: event.occurredAt,
           }
         }
         case 'graph.edge.remove': {
-          const nextEdges = state.edges.filter(
-            (edge) => edge.id !== event.edgeId,
-          )
-
           return {
-            ...maybeLayout(
-              state,
-              state.nodes,
-              nextEdges,
-              state.layoutDirection,
-              event.relayout ?? state.autoLayout,
-            ),
+            edges: state.edges.filter((edge) => edge.id !== event.edgeId),
             lastEventId: event.eventId,
             lastEventAt: event.occurredAt,
           }
         }
         case 'graph.layout':
           return {
-            ...maybeLayout(
-              state,
-              state.nodes,
-              state.edges,
-              event.direction ?? state.layoutDirection,
-              true,
-            ),
+            layoutDirection: event.direction ?? state.layoutDirection,
             lastEventId: event.eventId,
             lastEventAt: event.occurredAt,
           }
@@ -369,6 +342,11 @@ export const useGraphStore = create<GraphStore>((set) => ({
           }
       }
     })
+
+    // Schedule layout after batch settles (80ms debounce)
+    if (event.type !== 'graph.reset') {
+      scheduleLayout(useGraphStore)
+    }
   },
   reset: () => {
     set(initialState)

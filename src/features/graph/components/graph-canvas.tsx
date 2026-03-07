@@ -38,7 +38,7 @@ export function GraphCanvas({ className }: GraphCanvasProps) {
     <div
       className={cn(
         'relative h-full min-h-[24rem] overflow-hidden rounded-[1.8rem]',
-        className
+        className,
       )}
     >
       <div className="panel-grid absolute inset-0 opacity-70" />
@@ -75,7 +75,7 @@ function GraphCanvasInner() {
   const empty = nodes.length === 0
   const countLabel = useMemo(
     () => `${nodes.length} nodes / ${edges.length} edges`,
-    [edges.length, nodes.length]
+    [edges.length, nodes.length],
   )
 
   return (

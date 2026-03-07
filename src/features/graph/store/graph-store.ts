@@ -35,19 +35,19 @@ export interface GraphStoreActions {
   setConnectionStatus: (status: GraphConnectionStatus) => void
   upsertNode: (
     node: GraphNodeRecord,
-    options?: { positionHint?: XYPosition; relayout?: boolean }
+    options?: { positionHint?: XYPosition; relayout?: boolean },
   ) => void
   updateNode: (
     nodeId: string,
     updates: Partial<Omit<GraphNodeData, 'id' | 'kind'>>,
-    options?: { relayout?: boolean }
+    options?: { relayout?: boolean },
   ) => void
   removeNode: (nodeId: string, options?: { relayout?: boolean }) => void
   upsertEdge: (edge: GraphEdgeRecord, options?: { relayout?: boolean }) => void
   updateEdge: (
     edgeId: string,
     updates: Partial<Omit<GraphEdgeRecord, 'id' | 'source' | 'target'>>,
-    options?: { relayout?: boolean }
+    options?: { relayout?: boolean },
   ) => void
   removeEdge: (edgeId: string, options?: { relayout?: boolean }) => void
   onNodesChange: (changes: NodeChange<GraphNode>[]) => void
@@ -74,7 +74,7 @@ function maybeLayout(
   nodes: GraphNode[],
   edges: GraphEdge[],
   direction: GraphLayoutDirection = state.layoutDirection,
-  relayout = state.autoLayout
+  relayout = state.autoLayout,
 ) {
   if (!relayout) {
     return {
@@ -100,7 +100,7 @@ export const useGraphStore = create<GraphStore>((set) => ({
   upsertNode: (node, options) => {
     set((state) => {
       const nextNodes = state.nodes.some(
-        (existingNode) => existingNode.id === node.id
+        (existingNode) => existingNode.id === node.id,
       )
         ? state.nodes.map((existingNode) =>
             existingNode.id === node.id
@@ -110,7 +110,7 @@ export const useGraphStore = create<GraphStore>((set) => ({
                   type: node.kind,
                   style: createGraphNode(node).style,
                 }
-              : existingNode
+              : existingNode,
           )
         : [...state.nodes, createGraphNode(node, options?.positionHint)]
 
@@ -119,7 +119,7 @@ export const useGraphStore = create<GraphStore>((set) => ({
         nextNodes,
         state.edges,
         state.layoutDirection,
-        options?.relayout ?? state.autoLayout
+        options?.relayout ?? state.autoLayout,
       )
     })
   },
@@ -134,7 +134,7 @@ export const useGraphStore = create<GraphStore>((set) => ({
                 ...updates,
               },
             }
-          : node
+          : node,
       )
 
       return maybeLayout(
@@ -142,7 +142,7 @@ export const useGraphStore = create<GraphStore>((set) => ({
         nextNodes,
         state.edges,
         state.layoutDirection,
-        options?.relayout ?? false
+        options?.relayout ?? false,
       )
     })
   },
@@ -150,7 +150,7 @@ export const useGraphStore = create<GraphStore>((set) => ({
     set((state) => {
       const nextNodes = state.nodes.filter((node) => node.id !== nodeId)
       const nextEdges = state.edges.filter(
-        (edge) => edge.source !== nodeId && edge.target !== nodeId
+        (edge) => edge.source !== nodeId && edge.target !== nodeId,
       )
 
       return maybeLayout(
@@ -158,17 +158,17 @@ export const useGraphStore = create<GraphStore>((set) => ({
         nextNodes,
         nextEdges,
         state.layoutDirection,
-        options?.relayout ?? state.autoLayout
+        options?.relayout ?? state.autoLayout,
       )
     })
   },
   upsertEdge: (edge, options) => {
     set((state) => {
       const nextEdges = state.edges.some(
-        (existingEdge) => existingEdge.id === edge.id
+        (existingEdge) => existingEdge.id === edge.id,
       )
         ? state.edges.map((existingEdge) =>
-            existingEdge.id === edge.id ? createGraphEdge(edge) : existingEdge
+            existingEdge.id === edge.id ? createGraphEdge(edge) : existingEdge,
           )
         : [...state.edges, createGraphEdge(edge)]
 
@@ -177,7 +177,7 @@ export const useGraphStore = create<GraphStore>((set) => ({
         state.nodes,
         nextEdges,
         state.layoutDirection,
-        options?.relayout ?? state.autoLayout
+        options?.relayout ?? state.autoLayout,
       )
     })
   },
@@ -193,7 +193,7 @@ export const useGraphStore = create<GraphStore>((set) => ({
               label:
                 updates.label !== undefined ? updates.label : edge.data.label,
             })
-          : edge
+          : edge,
       )
 
       return maybeLayout(
@@ -201,7 +201,7 @@ export const useGraphStore = create<GraphStore>((set) => ({
         state.nodes,
         nextEdges,
         state.layoutDirection,
-        options?.relayout ?? false
+        options?.relayout ?? false,
       )
     })
   },
@@ -214,7 +214,7 @@ export const useGraphStore = create<GraphStore>((set) => ({
         state.nodes,
         nextEdges,
         state.layoutDirection,
-        options?.relayout ?? state.autoLayout
+        options?.relayout ?? state.autoLayout,
       )
     })
   },
@@ -235,15 +235,17 @@ export const useGraphStore = create<GraphStore>((set) => ({
         state.nodes,
         state.edges,
         direction ?? state.layoutDirection,
-        true
-      )
+        true,
+      ),
     )
   },
   applyEvent: (event) => {
     set((state) => {
       switch (event.type) {
         case 'graph.node.upsert': {
-          const nextNodes = state.nodes.some((node) => node.id === event.node.id)
+          const nextNodes = state.nodes.some(
+            (node) => node.id === event.node.id,
+          )
             ? state.nodes.map((node) =>
                 node.id === event.node.id
                   ? {
@@ -252,7 +254,7 @@ export const useGraphStore = create<GraphStore>((set) => ({
                       type: event.node.kind,
                       style: createGraphNode(event.node).style,
                     }
-                  : node
+                  : node,
               )
             : [...state.nodes, createGraphNode(event.node, event.positionHint)]
 
@@ -262,7 +264,7 @@ export const useGraphStore = create<GraphStore>((set) => ({
               nextNodes,
               state.edges,
               state.layoutDirection,
-              event.relayout ?? state.autoLayout
+              event.relayout ?? state.autoLayout,
             ),
             lastEventId: event.eventId,
             lastEventAt: event.occurredAt,
@@ -270,11 +272,11 @@ export const useGraphStore = create<GraphStore>((set) => ({
         }
         case 'graph.node.remove': {
           const nextNodes = state.nodes.filter(
-            (node) => node.id !== event.nodeId
+            (node) => node.id !== event.nodeId,
           )
           const nextEdges = state.edges.filter(
             (edge) =>
-              edge.source !== event.nodeId && edge.target !== event.nodeId
+              edge.source !== event.nodeId && edge.target !== event.nodeId,
           )
 
           return {
@@ -283,16 +285,18 @@ export const useGraphStore = create<GraphStore>((set) => ({
               nextNodes,
               nextEdges,
               state.layoutDirection,
-              event.relayout ?? state.autoLayout
+              event.relayout ?? state.autoLayout,
             ),
             lastEventId: event.eventId,
             lastEventAt: event.occurredAt,
           }
         }
         case 'graph.edge.upsert': {
-          const nextEdges = state.edges.some((edge) => edge.id === event.edge.id)
+          const nextEdges = state.edges.some(
+            (edge) => edge.id === event.edge.id,
+          )
             ? state.edges.map((edge) =>
-                edge.id === event.edge.id ? createGraphEdge(event.edge) : edge
+                edge.id === event.edge.id ? createGraphEdge(event.edge) : edge,
               )
             : [...state.edges, createGraphEdge(event.edge)]
 
@@ -302,7 +306,7 @@ export const useGraphStore = create<GraphStore>((set) => ({
               state.nodes,
               nextEdges,
               state.layoutDirection,
-              event.relayout ?? state.autoLayout
+              event.relayout ?? state.autoLayout,
             ),
             lastEventId: event.eventId,
             lastEventAt: event.occurredAt,
@@ -310,7 +314,7 @@ export const useGraphStore = create<GraphStore>((set) => ({
         }
         case 'graph.edge.remove': {
           const nextEdges = state.edges.filter(
-            (edge) => edge.id !== event.edgeId
+            (edge) => edge.id !== event.edgeId,
           )
 
           return {
@@ -319,7 +323,7 @@ export const useGraphStore = create<GraphStore>((set) => ({
               state.nodes,
               nextEdges,
               state.layoutDirection,
-              event.relayout ?? state.autoLayout
+              event.relayout ?? state.autoLayout,
             ),
             lastEventId: event.eventId,
             lastEventAt: event.occurredAt,
@@ -332,7 +336,7 @@ export const useGraphStore = create<GraphStore>((set) => ({
               state.nodes,
               state.edges,
               event.direction ?? state.layoutDirection,
-              true
+              true,
             ),
             lastEventId: event.eventId,
             lastEventAt: event.occurredAt,

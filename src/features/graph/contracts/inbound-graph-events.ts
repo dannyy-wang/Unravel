@@ -19,13 +19,15 @@ const graphNodeRecordSchema = z
     kind: nodeKindSchema,
     label: z.string().min(1).max(140),
     summary: z.string().max(280).optional(),
-    emphasis: z.union([
-      z.literal(1),
-      z.literal(2),
-      z.literal(3),
-      z.literal(4),
-      z.literal(5),
-    ]).optional(),
+    emphasis: z
+      .union([
+        z.literal(1),
+        z.literal(2),
+        z.literal(3),
+        z.literal(4),
+        z.literal(5),
+      ])
+      .optional(),
   })
   .strict()
 

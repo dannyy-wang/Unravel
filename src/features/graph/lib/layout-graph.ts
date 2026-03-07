@@ -18,11 +18,7 @@ export interface GraphLayoutOptions {
 export function layoutGraph(
   nodes: GraphNode[],
   edges: GraphEdge[],
-  {
-    direction,
-    nodeSeparation = 44,
-    rankSeparation = 88,
-  }: GraphLayoutOptions
+  { direction, nodeSeparation = 44, rankSeparation = 88 }: GraphLayoutOptions,
 ): { nodes: GraphNode[]; edges: GraphEdge[] } {
   const graph = new dagre.graphlib.Graph().setDefaultEdgeLabel(() => ({}))
   const isHorizontal = direction === 'LR'

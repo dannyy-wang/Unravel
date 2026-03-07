@@ -1,204 +1,196 @@
-Welcome to your new TanStack Start app! 
+# Unravel
 
-# Getting Started
+Frontend-only TanStack Start scaffold for a voice-native ideation tool. The UI is built to receive real-time graph deltas from an external voice pipeline and render them on a styled React Flow canvas with typed state, layout orchestration, and a clear integration boundary.
 
-To run this application:
+## Setup
 
 ```bash
 npm install
 npm run dev
 ```
 
-# Building For Production
+The app runs on [http://localhost:3000](http://localhost:3000).
 
-To build this application for production:
+## Scripts
 
 ```bash
+npm run dev
 npm run build
-```
-
-## Testing
-
-This project uses [Vitest](https://vitest.dev/) for testing. You can run the tests with:
-
-```bash
+npm run preview
 npm run test
-```
-
-## Styling
-
-This project uses [Tailwind CSS](https://tailwindcss.com/) for styling.
-
-### Removing Tailwind CSS
-
-If you prefer not to use Tailwind CSS:
-
-1. Remove the demo pages in `src/routes/demo/`
-2. Replace the Tailwind import in `src/styles.css` with your own styles
-3. Remove `tailwindcss()` from the plugins array in `vite.config.ts`
-4. Uninstall the packages: `npm install @tailwindcss/vite tailwindcss -D`
-
-## Linting & Formatting
-
-
-This project uses [eslint](https://eslint.org/) and [prettier](https://prettier.io/) for linting and formatting. Eslint is configured using [tanstack/eslint-config](https://tanstack.com/config/latest/docs/eslint). The following scripts are available:
-
-```bash
 npm run lint
 npm run format
 npm run check
 ```
 
+## Stack
 
+- TanStack Start + React + TypeScript
+- Tailwind CSS v4 + `@tailwindcss/vite`
+- shadcn-style component setup via [`components.json`](./components.json)
+- `@xyflow/react` for the graph canvas
+- `@dagrejs/dagre` for auto-layout
+- `zustand` for client graph state
+- `zod` for inbound event validation
+- `motion` for shell transitions
 
-## Routing
+## What Is Scaffolded
 
-This project uses [TanStack Router](https://tanstack.com/router) with file-based routing. Routes are managed as files in `src/routes`.
+- Distinctive responsive app shell with:
+  - top bar status + layout controls
+  - main graph canvas region
+  - right-side live transcript/activity panel empty state
+- Typed graph foundation:
+  - node kinds: `idea`, `category`, `insight`
+  - typed edge model
+  - Zustand graph store
+  - Dagre layout integration
+  - custom React Flow node components
+- Realtime boundary:
+  - strict Zod contracts for inbound graph delta events
+  - adapter interface definitions only
+  - separation between adapter, store, and UI layers
+- Design system:
+  - CSS design tokens
+  - custom typography
+  - focus-visible treatment
+  - motion polish
+  - shadcn-compatible utility primitives in `src/components/ui`
 
-### Adding A Route
+## Intentionally Out Of Scope
 
-To add a new route to your application just add a new file in the `./src/routes` directory.
+- Backend services
+- API routes
+- auth
+- database work
+- middleware
+- websocket / SSE / WebRTC transport implementation
+- voice agent, speech-to-text, or orchestration logic
+- mocked graph data, fake streams, timers, or demo event playback
 
-TanStack will automatically generate the content of the route file for you.
+## Architecture
 
-Now that you have two routes you can use a `Link` component to navigate between them.
+### UI Layer
 
-### Adding Links
+- [`src/features/workspace/components/workspace-shell.tsx`](./src/features/workspace/components/workspace-shell.tsx): top-level workspace composition
+- [`src/features/workspace/components/top-bar.tsx`](./src/features/workspace/components/top-bar.tsx): status chips and layout controls
+- [`src/features/graph/components/graph-canvas.tsx`](./src/features/graph/components/graph-canvas.tsx): React Flow wiring and canvas empty state
+- [`src/features/activity/components/activity-panel.tsx`](./src/features/activity/components/activity-panel.tsx): transcript/activity empty state
 
-To use SPA (Single Page Application) navigation you will need to import the `Link` component from `@tanstack/react-router`.
+### Graph Domain Layer
 
-```tsx
-import { Link } from "@tanstack/react-router";
+- [`src/features/graph/types/graph.ts`](./src/features/graph/types/graph.ts): typed nodes, edges, layout directions, and React Flow builders
+- [`src/features/graph/lib/layout-graph.ts`](./src/features/graph/lib/layout-graph.ts): Dagre layout utility
+- [`src/features/graph/store/graph-store.ts`](./src/features/graph/store/graph-store.ts): Zustand state and graph actions
+
+### Realtime Boundary
+
+- [`src/features/graph/contracts/inbound-graph-events.ts`](./src/features/graph/contracts/inbound-graph-events.ts): strict inbound event schemas and TS types
+- [`src/features/realtime/graph-event-adapter.ts`](./src/features/realtime/graph-event-adapter.ts): adapter interface signatures only
+
+## Folder Tree
+
+```text
+src/
+├── components/
+│   └── ui/
+│       ├── button.tsx
+│       ├── scroll-area.tsx
+│       └── separator.tsx
+├── features/
+│   ├── activity/
+│   │   └── components/
+│   │       └── activity-panel.tsx
+│   ├── graph/
+│   │   ├── components/
+│   │   │   ├── category-node.tsx
+│   │   │   ├── graph-canvas.tsx
+│   │   │   ├── graph-node-card.tsx
+│   │   │   ├── idea-node.tsx
+│   │   │   └── insight-node.tsx
+│   │   ├── contracts/
+│   │   │   └── inbound-graph-events.ts
+│   │   ├── lib/
+│   │   │   └── layout-graph.ts
+│   │   ├── store/
+│   │   │   └── graph-store.ts
+│   │   └── types/
+│   │       └── graph.ts
+│   ├── realtime/
+│   │   └── graph-event-adapter.ts
+│   └── workspace/
+│       └── components/
+│           ├── top-bar.tsx
+│           └── workspace-shell.tsx
+├── lib/
+│   └── utils.ts
+├── routes/
+│   ├── __root.tsx
+│   └── index.tsx
+└── styles.css
 ```
 
-Then anywhere in your JSX you can use it like so:
+## Realtime Event Contract
 
-```tsx
-<Link to="/about">About</Link>
-```
+Inbound events are validated with Zod before they should touch the store. Supported event types:
 
-This will create a link that will navigate to the `/about` route.
+- `graph.node.upsert`
+- `graph.node.remove`
+- `graph.edge.upsert`
+- `graph.edge.remove`
+- `graph.layout`
+- `graph.reset`
 
-More information on the `Link` component can be found in the [Link documentation](https://tanstack.com/router/v1/docs/framework/react/api/router/linkComponent).
+Each event uses a strict envelope:
 
-### Using A Layout
-
-In the File Based Routing setup the layout is located in `src/routes/__root.tsx`. Anything you add to the root route will appear in all the routes. The route content will appear in the JSX where you render `{children}` in the `shellComponent`.
-
-Here is an example layout that includes a header:
-
-```tsx
-import { HeadContent, Scripts, createRootRoute } from '@tanstack/react-router'
-
-export const Route = createRootRoute({
-  head: () => ({
-    meta: [
-      { charSet: 'utf-8' },
-      { name: 'viewport', content: 'width=device-width, initial-scale=1' },
-      { title: 'My App' },
-    ],
-  }),
-  shellComponent: ({ children }) => (
-    <html lang="en">
-      <head>
-        <HeadContent />
-      </head>
-      <body>
-        <header>
-          <nav>
-            <Link to="/">Home</Link>
-            <Link to="/about">About</Link>
-          </nav>
-        </header>
-        {children}
-        <Scripts />
-      </body>
-    </html>
-  ),
-})
-```
-
-More information on layouts can be found in the [Layouts documentation](https://tanstack.com/router/latest/docs/framework/react/guide/routing-concepts#layouts).
-
-## Server Functions
-
-TanStack Start provides server functions that allow you to write server-side code that seamlessly integrates with your client components.
-
-```tsx
-import { createServerFn } from '@tanstack/react-start'
-
-const getServerTime = createServerFn({
-  method: 'GET',
-}).handler(async () => {
-  return new Date().toISOString()
-})
-
-// Use in a component
-function MyComponent() {
-  const [time, setTime] = useState('')
-  
-  useEffect(() => {
-    getServerTime().then(setTime)
-  }, [])
-  
-  return <div>Server time: {time}</div>
+```ts
+{
+  version: 1
+  eventId: string
+  occurredAt: string // ISO datetime
 }
 ```
 
-## API Routes
+Node payloads support:
 
-You can create API routes by using the `server` property in your route definitions:
+- `id`
+- `kind`: `idea | category | insight`
+- `label`
+- optional `summary`
+- optional `emphasis`
 
-```tsx
-import { createFileRoute } from '@tanstack/react-router'
-import { json } from '@tanstack/react-start'
+Edge payloads support:
 
-export const Route = createFileRoute('/api/hello')({
-  server: {
-    handlers: {
-      GET: () => json({ message: 'Hello, World!' }),
-    },
-  },
-})
-```
+- `id`
+- `source`
+- `target`
+- `kind`: `association | hierarchy | reference`
+- optional `label`
 
-## Data Fetching
+## Adapter Boundary
 
-There are multiple ways to fetch data in your application. You can use TanStack Query to fetch data from a server. But you can also use the `loader` functionality built into TanStack Router to load the data for a route before it's rendered.
+The transport is intentionally not implemented. External integrations should conform to [`src/features/realtime/graph-event-adapter.ts`](./src/features/realtime/graph-event-adapter.ts):
 
-For example:
-
-```tsx
-import { createFileRoute } from '@tanstack/react-router'
-
-export const Route = createFileRoute('/people')({
-  loader: async () => {
-    const response = await fetch('https://swapi.dev/api/people')
-    return response.json()
-  },
-  component: PeopleComponent,
-})
-
-function PeopleComponent() {
-  const data = Route.useLoaderData()
-  return (
-    <ul>
-      {data.results.map((person) => (
-        <li key={person.name}>{person.name}</li>
-      ))}
-    </ul>
-  )
+```ts
+interface GraphEventAdapter {
+  readonly name: string
+  connect(): Promise<void> | void
+  disconnect(): Promise<void> | void
+  subscribe(listener: GraphEventListener): () => void
 }
 ```
 
-Loaders simplify your data fetching logic dramatically. Check out more information in the [Loader documentation](https://tanstack.com/router/latest/docs/framework/react/guide/data-loading#loader-parameters).
+Expected flow:
 
-# Demo files
+1. External voice pipeline emits graph delta events.
+2. Adapter validates/parses them with the Zod contracts.
+3. Adapter forwards typed events into the Zustand store.
+4. Store mutates graph state and triggers Dagre layout when needed.
+5. React Flow re-renders the canvas with the updated nodes and edges.
 
-Files prefixed with `demo` can be safely deleted. They are there to provide a starting point for you to play around with the features you've installed.
+## Notes
 
-# Learn More
-
-You can learn more about all of the offerings from TanStack in the [TanStack documentation](https://tanstack.com).
-
-For TanStack Start specific documentation, visit [TanStack Start](https://tanstack.com/start).
+- The graph starts empty by design.
+- The activity panel is an empty state by design.
+- No transport, no demo data, and no fake event source are included.
+- `npm run build` succeeds against the current scaffold.

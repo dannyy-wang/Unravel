@@ -23,5 +23,5 @@ export interface GraphEventAdapterOptions {
 }
 
 export type GraphEventAdapterFactory = (
-  options: GraphEventAdapterOptions
+  options: GraphEventAdapterOptions,
 ) => GraphEventAdapter

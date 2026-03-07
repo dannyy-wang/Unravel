@@ -1,15 +1,8 @@
-import {
-  Handle,
-  Position,
-  type NodeProps,
-} from '@xyflow/react'
+import { Handle, Position, type NodeProps } from '@xyflow/react'
 import type { LucideIcon } from 'lucide-react'
 
 import { cn } from '#/lib/utils'
-import type {
-  GraphNode,
-  GraphNodeData,
-} from '#/features/graph/types/graph'
+import type { GraphNode, GraphNodeData } from '#/features/graph/types/graph'
 
 interface GraphNodeCardProps extends NodeProps<GraphNode> {
   icon: LucideIcon
@@ -33,7 +26,7 @@ export function GraphNodeCard({
         'w-[min(300px,72vw)] rounded-[1.5rem] border border-white/6 bg-[rgba(17,14,15,0.92)] p-4 text-left shadow-[0_30px_90px_rgba(0,0,0,0.38)] transition-transform duration-300',
         selected
           ? 'scale-[1.01] border-[color:var(--node-accent)] shadow-[0_0_0_1px_var(--node-accent),0_32px_90px_rgba(0,0,0,0.42)]'
-          : 'hover:-translate-y-0.5'
+          : 'hover:-translate-y-0.5',
       )}
     >
       <Handle
@@ -61,7 +54,8 @@ export function GraphNodeCard({
         </span>
       </div>
       <p className="min-h-12 text-sm leading-6 text-[var(--ink-soft)]">
-        {data.summary ?? 'Waiting for a structured delta from the voice pipeline.'}
+        {data.summary ??
+          'Waiting for a structured delta from the voice pipeline.'}
       </p>
       <div className="mt-4 flex items-center justify-between gap-3">
         <span

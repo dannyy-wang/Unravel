@@ -1,14 +1,14 @@
-@import url("https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&family=Syne:wght@400;500;600;700;800&display=swap");
-@import "tailwindcss";
-@import "tw-animate-css";
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&family=Syne:wght@400;500;600;700;800&display=swap');
+@import 'tailwindcss';
+@import 'tw-animate-css';
 
 @custom-variant dark (&:is(.dark *));
 @plugin "@tailwindcss/typography";
 
 @theme {
-  --font-sans: "IBM Plex Sans", ui-sans-serif, sans-serif;
-  --font-mono: "IBM Plex Mono", ui-monospace, monospace;
-  --font-display: "Syne", ui-sans-serif, sans-serif;
+  --font-sans: 'IBM Plex Sans', ui-sans-serif, sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, monospace;
+  --font-display: 'Syne', ui-sans-serif, sans-serif;
   --color-background: var(--canvas);
   --color-foreground: var(--ink);
   --color-card: var(--panel);
@@ -57,8 +57,7 @@
   --grid-major: rgba(255, 240, 222, 0.08);
   --grid-minor: rgba(255, 240, 222, 0.04);
   --shadow-panel:
-    0 28px 80px rgba(0, 0, 0, 0.3),
-    inset 0 1px 0 rgba(255, 255, 255, 0.03);
+    0 28px 80px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.03);
 }
 
 * {
@@ -77,9 +76,21 @@ body {
   font-family: var(--font-sans);
   background-color: var(--canvas);
   background:
-    radial-gradient(circle at top left, rgba(242, 182, 109, 0.2), transparent 30%),
-    radial-gradient(circle at 85% 14%, rgba(201, 240, 122, 0.12), transparent 24%),
-    radial-gradient(circle at 50% 110%, rgba(159, 212, 255, 0.08), transparent 28%),
+    radial-gradient(
+      circle at top left,
+      rgba(242, 182, 109, 0.2),
+      transparent 30%
+    ),
+    radial-gradient(
+      circle at 85% 14%,
+      rgba(201, 240, 122, 0.12),
+      transparent 24%
+    ),
+    radial-gradient(
+      circle at 50% 110%,
+      rgba(159, 212, 255, 0.08),
+      transparent 28%
+    ),
     linear-gradient(180deg, #181214 0%, #120f10 50%, #0b0909 100%);
   overflow-x: hidden;
   -webkit-font-smoothing: antialiased;
@@ -87,30 +98,51 @@ body {
 }
 
 body::before {
-  content: "";
+  content: '';
   position: fixed;
   inset: 0;
   z-index: -1;
   pointer-events: none;
   opacity: 0.52;
   background:
-    linear-gradient(90deg, transparent 0, transparent calc(100% - 1px), rgba(255, 255, 255, 0.02) 100%),
-    linear-gradient(transparent 0, transparent calc(100% - 1px), rgba(255, 255, 255, 0.015) 100%);
+    linear-gradient(
+      90deg,
+      transparent 0,
+      transparent calc(100% - 1px),
+      rgba(255, 255, 255, 0.02) 100%
+    ),
+    linear-gradient(
+      transparent 0,
+      transparent calc(100% - 1px),
+      rgba(255, 255, 255, 0.015) 100%
+    );
   background-size: 120px 120px;
   mask-image: radial-gradient(circle at center, black, transparent 88%);
 }
 
 body::after {
-  content: "";
+  content: '';
   position: fixed;
   inset: 0;
   z-index: -1;
   pointer-events: none;
   opacity: 0.18;
   background:
-    radial-gradient(circle at 18% 22%, rgba(255, 211, 154, 0.18), transparent 22%),
-    radial-gradient(circle at 74% 8%, rgba(201, 240, 122, 0.12), transparent 16%),
-    radial-gradient(circle at 82% 88%, rgba(159, 212, 255, 0.11), transparent 18%);
+    radial-gradient(
+      circle at 18% 22%,
+      rgba(255, 211, 154, 0.18),
+      transparent 22%
+    ),
+    radial-gradient(
+      circle at 74% 8%,
+      rgba(201, 240, 122, 0.12),
+      transparent 16%
+    ),
+    radial-gradient(
+      circle at 82% 88%,
+      rgba(159, 212, 255, 0.11),
+      transparent 18%
+    );
 }
 
 button,

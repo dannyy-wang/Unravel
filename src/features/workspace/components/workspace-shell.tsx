@@ -32,7 +32,9 @@ export function WorkspaceShell() {
           activityPanelOpen={activityPanelOpen}
           onLayoutDirectionChange={(direction) => triggerLayout(direction)}
           onRelayout={() => triggerLayout()}
-          onToggleActivityPanel={() => setActivityPanelOpen((current) => !current)}
+          onToggleActivityPanel={() =>
+            setActivityPanelOpen((current) => !current)
+          }
         />
       </motion.div>
 

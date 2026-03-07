@@ -84,7 +84,7 @@ export const graphNodeDimensions: Record<
 
 export function createGraphNode(
   record: GraphNodeRecord,
-  position: XYPosition = { x: 0, y: 0 }
+  position: XYPosition = { x: 0, y: 0 },
 ): GraphNode {
   return {
     id: record.id,

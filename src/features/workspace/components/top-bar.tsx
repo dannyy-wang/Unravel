@@ -141,7 +141,12 @@ function StatusChip({
           {label}
         </span>
       </div>
-      <p className={cn('text-sm font-medium text-[var(--ink-soft)]', valueClassName)}>
+      <p
+        className={cn(
+          'text-sm font-medium text-[var(--ink-soft)]',
+          valueClassName,
+        )}
+      >
         {value}
       </p>
     </div>

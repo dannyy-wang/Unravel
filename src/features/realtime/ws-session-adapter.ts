@@ -113,6 +113,8 @@ export class WsSessionAdapter implements GraphEventAdapter {
       const parsed = inboundGraphEventSchema.safeParse(msg)
       if (parsed.success) {
         this.emit(parsed.data)
+      } else {
+        console.warn('[ws-adapter] Graph event failed validation:', type, parsed.error.issues)
       }
       return
     }

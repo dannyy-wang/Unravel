@@ -87,6 +87,7 @@ export function handleSessionSocket(
 
       // Stream graph events to client
       for (const event of result.graphEvents) {
+        console.log(`[ai] Sending event: ${event.type}`, 'node' in event ? (event as Record<string, unknown>).node : 'edge' in event ? (event as Record<string, unknown>).edge : '')
         sendToClient(event)
       }
 
@@ -97,10 +98,11 @@ export function handleSessionSocket(
       if (result.response) {
         sendToClient({ type: 'ai.response', text: result.response })
         sessionManager.addAssistantMessage(sessionId, result.response)
+        console.log(`[ai] Response: "${result.response.slice(0, 120)}"`)
       }
 
       console.log(
-        `[ai] Done: ${result.graphEvents.length} events, response: ${result.response ? 'yes' : 'no'}`,
+        `[ai] Done: ${result.graphEvents.length} events`,
       )
     } catch (error) {
       console.error('[ai] Processing error:', error)
@@ -118,8 +120,12 @@ export function handleSessionSocket(
   }
 
   // --- Handle incoming messages from client ---
+  let audioChunks = 0
   ws.on('message', (data, isBinary) => {
     if (isBinary && !destroyed) {
+      audioChunks++
+      if (audioChunks === 1) console.log(`[ws] Receiving audio (first chunk: ${(data as Buffer).length} bytes)`)
+      if (audioChunks % 50 === 0) console.log(`[ws] Audio chunks received: ${audioChunks}`)
       deepgram.sendAudio(data as Buffer)
     }
   })

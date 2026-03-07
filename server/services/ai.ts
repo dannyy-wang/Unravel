@@ -28,17 +28,20 @@ export interface AiProcessingResult {
 }
 
 export class AiService {
-  private client: Anthropic
+  private client: Anthropic | null = null
 
-  constructor() {
-    this.client = new Anthropic()
+  private getClient(): Anthropic {
+    if (!this.client) {
+      this.client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
+    }
+    return this.client
   }
 
   async processUtterance(input: AiProcessingInput): Promise<AiProcessingResult> {
     const systemPrompt = this.buildSystemPrompt(input)
     const messages = this.buildMessages(input)
 
-    const response = await this.client.messages.create({
+    const response = await this.getClient().messages.create({
       model: process.env.LLM_MODEL || 'claude-sonnet-4-20250514',
       max_tokens: 4096,
       system: systemPrompt,

@@ -23,6 +23,7 @@ export interface DeepgramServiceOptions {
 export class DeepgramService {
   private dgWs: WebSocket | null = null
   private options: DeepgramServiceOptions
+  private keepAliveTimer: ReturnType<typeof setInterval> | null = null
 
   constructor(options: DeepgramServiceOptions) {
     this.options = options
@@ -37,6 +38,9 @@ export class DeepgramService {
       utterance_end_ms: '1000',
       vad_events: 'true',
       endpointing: '300',
+      encoding: 'linear16',
+      sample_rate: '16000',
+      channels: '1',
     })
 
     const url = `wss://api.deepgram.com/v1/listen?${params.toString()}`
@@ -47,6 +51,12 @@ export class DeepgramService {
 
     this.dgWs.on('open', () => {
       console.log('[deepgram] Connected')
+      // Send keepalive every 8 seconds to prevent Deepgram from closing idle connections
+      this.keepAliveTimer = setInterval(() => {
+        if (this.dgWs && this.dgWs.readyState === WebSocket.OPEN) {
+          this.dgWs.send(JSON.stringify({ type: 'KeepAlive' }))
+        }
+      }, 8000)
     })
 
     this.dgWs.on('message', (data) => {
@@ -56,6 +66,7 @@ export class DeepgramService {
         if (msg.type === 'Results') {
           const transcript = msg.channel?.alternatives?.[0]?.transcript
           if (transcript) {
+            console.log(`[deepgram] Transcript (final=${msg.is_final}): "${transcript.slice(0, 60)}"`)
             this.options.onEvent({
               type: 'transcript',
               transcript,
@@ -64,20 +75,27 @@ export class DeepgramService {
             })
           }
         } else if (msg.type === 'UtteranceEnd') {
+          console.log('[deepgram] UtteranceEnd')
           this.options.onEvent({ type: 'utterance_end' })
+        } else if (msg.type === 'Metadata') {
+          console.log(`[deepgram] Metadata: model=${msg.model_info?.name}, sampleRate=${msg.model_info?.input?.sample_rate}`)
+        } else {
+          // SpeechStarted, etc.
         }
       } catch {
         // ignore parse errors
       }
     })
 
-    this.dgWs.on('close', () => {
-      console.log('[deepgram] Disconnected')
+    this.dgWs.on('close', (code, reason) => {
+      console.log(`[deepgram] Disconnected (code=${code}, reason=${reason.toString() || 'none'})`)
+      this.clearKeepAlive()
       this.options.onClose()
     })
 
     this.dgWs.on('error', (err) => {
       console.error('[deepgram] Error:', err.message)
+      this.clearKeepAlive()
       this.options.onError(err)
     })
   }
@@ -89,9 +107,17 @@ export class DeepgramService {
   }
 
   disconnect(): void {
+    this.clearKeepAlive()
     if (this.dgWs) {
       this.dgWs.close()
       this.dgWs = null
+    }
+  }
+
+  private clearKeepAlive(): void {
+    if (this.keepAliveTimer) {
+      clearInterval(this.keepAliveTimer)
+      this.keepAliveTimer = null
     }
   }
 }

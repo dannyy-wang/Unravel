@@ -129,8 +129,13 @@ export function handleSessionSocket(
 
     isConsolidating = true
     try {
-      console.log(`[ai] Running 10s Graph Consolidation pass via Opus (Nodes: ${graphSnapshot.nodes.length})`)
-      const result = await aiService.consolidateGraph({ currentGraph: graphSnapshot })
+      const fullTranscript = session?.conversationHistory
+        .filter(m => m.role === 'user')
+        .map(m => m.content)
+        .join(' ') || ''
+
+      console.log(`[ai] Running 5s Graph Consolidation pass via AI (Nodes: ${graphSnapshot.nodes.length})`)
+      const result = await aiService.consolidateGraph({ currentGraph: graphSnapshot, transcript: fullTranscript })
 
       if (destroyed) return
 
@@ -150,7 +155,7 @@ export function handleSessionSocket(
     } finally {
       isConsolidating = false
     }
-  }, 10000)
+  }, 5000)
 
   // --- AI processing pipeline ---
   async function processAccumulatedTranscripts(): Promise<void> {

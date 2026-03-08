@@ -8,7 +8,7 @@ export function buildSystemPrompt(topic?: string): string {
 ${topicContext}
 
 ## Your Role
-- You are an expert facilitator that listens to a user as they brainstorm and type a raw stream of consciousness. You will help identify topics and determine when a new "node" can be added to a visual graph to help visualzie the brainstorm."
+- You are an expert facilitator that listens to a user as they brainstorm and type a raw stream of consciousness. You will help identify topics and determine when a new "node" can be added to a visual graph to help visualzie the brainstorm.`
 
 }
 

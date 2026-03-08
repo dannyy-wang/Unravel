@@ -69,7 +69,7 @@ export class AiService {
     return parsed
   }
 
-  async consolidateGraph(input: Pick<AiProcessingInput, 'currentGraph'>): Promise<AiProcessingResult> {
+  async consolidateGraph(input: Pick<AiProcessingInput, 'currentGraph' | 'transcript'>): Promise<AiProcessingResult> {
     const nodesJson =
       input.currentGraph.nodes.length > 0
         ? JSON.stringify(input.currentGraph.nodes, null, 2)
@@ -80,7 +80,10 @@ export class AiService {
         ? JSON.stringify(input.currentGraph.edges, null, 2)
         : '(none yet)'
 
-    const systemPrompt = `You are a Graph Librarian. Your job is to analyze this structured knowledge graph in JSON, find highly redundant or overlapping concept nodes, and issue commands to clean, consolidate, or merge them.
+    const systemPrompt = `You are a Graph Librarian. Your job is to analyze this structured knowledge graph in JSON, along with the full transcript of what the user has said so far. Find highly redundant or overlapping concept nodes, and issue commands to clean, consolidate, or merge them.
+
+## Full Transcript context
+${input.transcript || '(No transcript yet)'}
 
 ## Current Graph State
 NODES:
@@ -90,12 +93,12 @@ EDGES:
 ${edgesJson}
 
 ## Consolidation Rules
-You are highly aggressive about keeping the graph clean and legible.
-- Identify duplicate, overlapping, or closely related "idea" or "category" nodes.
-- If two or more nodes discuss similar concepts, REMOVE the weaker ones and UPSERT a stronger, combined node. 
-- You should proactively merge granular ideas into broader conceptual nodes.
-- If multiple nodes share a theme, aggressively group them: create a parent "category" node and link them via "hierarchy" edges.
-- If the graph is getting messy, consolidate ruthlessly. Only leave distinct, fundamental differences as separate nodes.
+- identify duplicate or nearly identical "idea" or "category" nodes based on the true context from the transcript.
+- If two nodes convey the exact same thought in the transcript, REMOVE one and keep the other.
+- If multiple nodes share a unifying foundational core based on the transcript, create a parent "category" node and link them via "hierarchy" edges.
+- VERY STRICT: Do not create edges connecting nodes simply because they kind of relate to each other. Edges ("association", "reference") should ONLY be created if there is an explicit and structural relationship. Otherwise, leave nodes disconnected.
+- DO NOT remove nodes just because they are detailed. Only remove actual redundancies.
+- If the graph is already perfectly clean, return an empty "graphEvents" array.
 
 ## Response Format
 Respond with ONLY a JSON object. No markdown, no code fences, no explanation outside the JSON.
@@ -114,13 +117,13 @@ Respond with ONLY a JSON object. No markdown, no code fences, no explanation out
 }`
 
     const response = await this.getClient().messages.create({
-      model: 'claude-opus-4-6',
+      model: 'claude-sonnet-4-6',
       max_tokens: 4096,
       system: systemPrompt,
       messages: [
         {
           role: 'user',
-          content: 'Please consolidate the graph based on the current state and provide the JSON graphEvents.',
+          content: 'Please consolidate the graph based on the transcript and current state and provide the JSON graphEvents.',
         }
       ],
     })
@@ -134,7 +137,7 @@ Respond with ONLY a JSON object. No markdown, no code fences, no explanation out
 
     parsed.debug = {
       systemPrompt,
-      messages: [{ role: 'user', content: 'Please consolidate the graph based on the current state and provide the JSON graphEvents.' }],
+      messages: [{ role: 'user', content: 'Please consolidate the graph based on the transcript and current state and provide the JSON graphEvents.' }],
       rawResponse: text,
     }
 
@@ -180,8 +183,9 @@ ${edgesJson}
 ## Graph Mutation Rules
 Analyze the user's speech and produce graph mutations:
 - Create a new node for new ideas, topics, or themes in the brainstorm
-- Create "association" edges between related ideas
-- Create "reference" edges for cross-references between clusters
+- VERY STRICT: Only create "association" edges between related ideas if there is an explicit, profound, and direct overlap.
+- VERY STRICT: Only create "reference" edges for cross-references between clusters if they fundamentally rely on each other.
+- Do NOT draw edges loosely just because two nodes exist in the same conceptual space. Spare the edges.
 - ALWAYS reference existing node IDs when creating edges to existing nodes
 - Generate UUIDs for new node and edge IDs (format: "n-<short-id>" for nodes, "e-<short-id>" for edges)
 - Labels: max 140 chars for nodes

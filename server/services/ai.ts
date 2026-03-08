@@ -69,6 +69,78 @@ export class AiService {
     return parsed
   }
 
+  async consolidateGraph(input: Pick<AiProcessingInput, 'currentGraph'>): Promise<AiProcessingResult> {
+    const nodesJson =
+      input.currentGraph.nodes.length > 0
+        ? JSON.stringify(input.currentGraph.nodes, null, 2)
+        : '(none yet)'
+
+    const edgesJson =
+      input.currentGraph.edges.length > 0
+        ? JSON.stringify(input.currentGraph.edges, null, 2)
+        : '(none yet)'
+
+    const systemPrompt = `You are a Graph Librarian. Your job is to analyze this structured knowledge graph in JSON, find highly redundant or overlapping concept nodes, and issue commands to clean, consolidate, or merge them.
+
+## Current Graph State
+NODES:
+${nodesJson}
+
+EDGES:
+${edgesJson}
+
+## Consolidation Rules
+You are highly aggressive about keeping the graph clean and legible.
+- Identify duplicate, overlapping, or closely related "idea" or "category" nodes.
+- If two or more nodes discuss similar concepts, REMOVE the weaker ones and UPSERT a stronger, combined node. 
+- You should proactively merge granular ideas into broader conceptual nodes.
+- If multiple nodes share a theme, aggressively group them: create a parent "category" node and link them via "hierarchy" edges.
+- If the graph is getting messy, consolidate ruthlessly. Only leave distinct, fundamental differences as separate nodes.
+
+## Response Format
+Respond with ONLY a JSON object. No markdown, no code fences, no explanation outside the JSON.
+
+{
+  "graphEvents": [
+    {
+      "type": "graph.node.remove",
+      "nodeId": "n-redundant123"
+    },
+    {
+      "type": "graph.edge.upsert",
+      "edge": { "id": "e-new-merge", "source": "n-keeper", "target": "n-other", "kind": "association" }
+    }
+  ]
+}`
+
+    const response = await this.getClient().messages.create({
+      model: 'claude-opus-4-6',
+      max_tokens: 4096,
+      system: systemPrompt,
+      messages: [
+        {
+          role: 'user',
+          content: 'Please consolidate the graph based on the current state and provide the JSON graphEvents.',
+        }
+      ],
+    })
+
+    const text = response.content
+      .filter((block): block is Anthropic.TextBlock => block.type === 'text')
+      .map((block) => block.text)
+      .join('')
+
+    const parsed = this.parseResponse(text)
+
+    parsed.debug = {
+      systemPrompt,
+      messages: [{ role: 'user', content: 'Please consolidate the graph based on the current state and provide the JSON graphEvents.' }],
+      rawResponse: text,
+    }
+
+    return parsed
+  }
+
   private buildSystemPrompt(input: AiProcessingInput): string {
     const topicLine = input.topic
       ? `The user is brainstorming about: "${input.topic}".`
@@ -214,7 +286,7 @@ The "graphEvents" array may be empty [] if no graph changes are warranted.`
           graphEvents.push({
             type,
             node,
-            relayout: true,
+            relayout: false,
             version: 1,
             eventId: randomUUID(),
             occurredAt: new Date().toISOString(),
@@ -225,7 +297,7 @@ The "graphEvents" array may be empty [] if no graph changes are warranted.`
           graphEvents.push({
             type,
             edge,
-            relayout: true,
+            relayout: false,
             version: 1,
             eventId: randomUUID(),
             occurredAt: new Date().toISOString(),
@@ -234,7 +306,7 @@ The "graphEvents" array may be empty [] if no graph changes are warranted.`
           graphEvents.push({
             type,
             nodeId: event.nodeId,
-            relayout: true,
+            relayout: false,
             version: 1,
             eventId: randomUUID(),
             occurredAt: new Date().toISOString(),
@@ -243,7 +315,7 @@ The "graphEvents" array may be empty [] if no graph changes are warranted.`
           graphEvents.push({
             type,
             edgeId: event.edgeId,
-            relayout: true,
+            relayout: false,
             version: 1,
             eventId: randomUUID(),
             occurredAt: new Date().toISOString(),

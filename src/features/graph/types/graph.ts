@@ -21,6 +21,7 @@ interface GraphNodeRecordBase {
   label: string
   summary?: string
   emphasis?: 1 | 2 | 3 | 4 | 5
+  [key: string]: unknown
 }
 
 export interface IdeaNodeRecord extends GraphNodeRecordBase {
@@ -48,6 +49,7 @@ export interface GraphEdgeRecord {
   target: string
   kind: GraphEdgeKind
   label?: string
+  [key: string]: unknown
 }
 
 export type GraphEdgeData = Omit<GraphEdgeRecord, 'id' | 'source' | 'target'>

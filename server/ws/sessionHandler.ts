@@ -2,7 +2,7 @@ import type { WebSocket } from 'ws'
 import { DeepgramService } from '../services/deepgram.js'
 import { AiService } from '../services/ai.js'
 import type { SessionManager } from '../services/session.js'
-import type { ServerToClientMessage } from '../services/shared-types.js'
+import type { ServerToClientMessage, InboundGraphEvent } from '../services/shared-types.js'
 
 const aiService = new AiService()
 
@@ -40,6 +40,38 @@ export function handleSessionSocket(
         // Accumulate transcripts (both interim and final) for AI processing based on timer
         if (event.transcript.trim()) {
           pendingTranscripts.push(event.transcript)
+
+          if (sessionStartTime) {
+            const elapsed = (Date.now() - sessionStartTime) / 1000;
+            if (elapsed < 5) {
+              // Heuristic: Auto-create/update the "Main Topic" node instantly on interim chunks
+              const snapshot = sessionManager.getGraphSnapshot(sessionId)
+              if (snapshot.nodes.length === 0 || (snapshot.nodes.length === 1 && snapshot.nodes[0].id === 'n-topic')) {
+                const combinedTranscript = pendingTranscripts.join(' ')
+                if (combinedTranscript.trim().length > 3) {
+                  const payload: InboundGraphEvent = {
+                    type: 'graph.node.upsert',
+                    node: {
+                      id: 'n-topic',
+                      kind: 'idea',
+                      label: combinedTranscript.slice(-140),
+                      emphasis: 5
+                    },
+                    relayout: false,
+                    version: 1,
+                    eventId: 'ev-topic-' + Date.now(),
+                    occurredAt: new Date().toISOString()
+                  }
+                  sendToClient(payload)
+                }
+              }
+
+              // Fire full AI processing on non-final chunks in the first 5s too
+              if (!event.is_final) {
+                processAccumulatedTranscripts();
+              }
+            }
+          }
         }
       } else if (event.type === 'utterance_end') {
         sendToClient({ type: 'utterance_end' })
@@ -85,6 +117,40 @@ export function handleSessionSocket(
   }
 
   setupAiTimer()
+
+  // --- Graph Consolidation Timer (Claude Opus) ---
+  let isConsolidating = false
+  const consolidationTimer = setInterval(async () => {
+    if (destroyed || isConsolidating) return
+    const graphSnapshot = sessionManager.getGraphSnapshot(sessionId)
+
+    // Only bother trying to consolidate if there are actual nodes to evaluate
+    if (graphSnapshot.nodes.length < 3) return
+
+    isConsolidating = true
+    try {
+      console.log(`[ai] Running 10s Graph Consolidation pass via Opus (Nodes: ${graphSnapshot.nodes.length})`)
+      const result = await aiService.consolidateGraph({ currentGraph: graphSnapshot })
+
+      if (destroyed) return
+
+      if (result.graphEvents.length > 0) {
+        console.log(`[ai] Consolidation removed/merged ${result.graphEvents.length} items`)
+        for (const event of result.graphEvents) {
+          sendToClient(event)
+        }
+        sessionManager.applyGraphEvents(sessionId, result.graphEvents)
+      }
+
+      if (result.debug) {
+        sendToClient({ type: 'ai.debug', debug: result.debug })
+      }
+    } catch (e) {
+      console.error('[ai] Cleanup pass failed:', e)
+    } finally {
+      isConsolidating = false
+    }
+  }, 10000)
 
   // --- AI processing pipeline ---
   async function processAccumulatedTranscripts(): Promise<void> {
@@ -163,6 +229,7 @@ export function handleSessionSocket(
     console.log(`[ws] Client disconnected from session ${sessionId}`)
     destroyed = true
     if (aiTimer) clearInterval(aiTimer)
+    clearInterval(consolidationTimer)
     deepgram.disconnect()
   })
 
@@ -170,6 +237,7 @@ export function handleSessionSocket(
     console.error(`[ws] Error on session ${sessionId}:`, err.message)
     destroyed = true
     if (aiTimer) clearInterval(aiTimer)
+    clearInterval(consolidationTimer)
     deepgram.disconnect()
   })
 }

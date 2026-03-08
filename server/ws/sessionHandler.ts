@@ -37,13 +37,12 @@ export function handleSessionSocket(
         // Forward to client for live display
         sendToClient(event)
 
-        // Accumulate final transcripts for AI processing
-        if (event.is_final && event.transcript.trim()) {
+        // Accumulate transcripts (both interim and final) for AI processing based on timer
+        if (event.transcript.trim()) {
           pendingTranscripts.push(event.transcript)
         }
       } else if (event.type === 'utterance_end') {
         sendToClient({ type: 'utterance_end' })
-        processAccumulatedTranscripts()
       }
     },
     onError: (error) => {
@@ -60,6 +59,32 @@ export function handleSessionSocket(
   })
 
   deepgram.connect()
+
+  // --- AI Processing Timer ---
+  const sessionStartTime = Date.now()
+  let currentTimerInterval = 1000
+  let aiTimer: NodeJS.Timeout | null = null
+
+  function setupAiTimer() {
+    if (destroyed) return
+    const elapsedSeconds = (Date.now() - sessionStartTime) / 1000
+
+    // Switch to 5s interval after 10s
+    if (elapsedSeconds >= 10 && currentTimerInterval === 1000) {
+      if (aiTimer) clearInterval(aiTimer)
+      currentTimerInterval = 5000
+      aiTimer = setInterval(timerTick, currentTimerInterval)
+    } else if (!aiTimer) {
+      aiTimer = setInterval(timerTick, currentTimerInterval)
+    }
+  }
+
+  function timerTick() {
+    processAccumulatedTranscripts()
+    setupAiTimer() // Check if we need to adjust interval
+  }
+
+  setupAiTimer()
 
   // --- AI processing pipeline ---
   async function processAccumulatedTranscripts(): Promise<void> {
@@ -137,12 +162,14 @@ export function handleSessionSocket(
   ws.on('close', () => {
     console.log(`[ws] Client disconnected from session ${sessionId}`)
     destroyed = true
+    if (aiTimer) clearInterval(aiTimer)
     deepgram.disconnect()
   })
 
   ws.on('error', (err) => {
     console.error(`[ws] Error on session ${sessionId}:`, err.message)
     destroyed = true
+    if (aiTimer) clearInterval(aiTimer)
     deepgram.disconnect()
   })
 }

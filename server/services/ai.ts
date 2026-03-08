@@ -84,6 +84,16 @@ export class AiService {
         ? JSON.stringify(input.currentGraph.edges, null, 2)
         : '(none yet)'
 
+    const nodeCount = input.currentGraph.nodes.length
+    let densityRule = ''
+    if (nodeCount < 5) {
+      densityRule = '- The graph is currently empty or very sparse. Please extract and create nodes liberally for any distinct ideas or concepts mentioned to help seed the brainstorm.'
+    } else if (nodeCount < 15) {
+      densityRule = '- The graph has a good foundation. Only create new nodes for ideas that do not fit into the existing nodes, otherwise update existing nodes.'
+    } else {
+      densityRule = '- The graph is getting very dense. Be EXTREMELY conservative about creating new nodes. ONLY create a new node if a completely novel, fundamental paradigm is introduced. Prefer to link to or update existing nodes.'
+    }
+
     return `You are a data extraction system. Your job is to listen to a raw, messy, stream-of-consciousness transcript from a user and extract key concepts to build a structured knowledge graph.
 
 ${topicLine}
@@ -97,18 +107,15 @@ ${edgesJson}
 
 ## Graph Mutation Rules
 Analyze the user's speech and produce graph mutations:
-- Create "idea" nodes for distinct ideas, opinions, or proposals
-- Create "category" nodes when you identify thematic groupings (2+ related ideas)
-- Create "insight" nodes for realizations, tensions, or synthesis points
+- Create a new node for new ideas, topics, or themes in the brainstorm
 - Create "association" edges between related ideas
-- Create "hierarchy" edges from categories to their children
 - Create "reference" edges for cross-references between clusters
 - ALWAYS reference existing node IDs when creating edges to existing nodes
 - Generate UUIDs for new node and edge IDs (format: "n-<short-id>" for nodes, "e-<short-id>" for edges)
-- Set emphasis (1-5) based on how central/important the idea seems
-- Labels: max 140 chars for nodes, max 120 chars for edges
+- Labels: max 140 chars for nodes
 - Summaries: max 280 chars, optional, for nodes that need elaboration
 - Do NOT create duplicate nodes for ideas already on the graph — update them instead
+${densityRule}
 
 ## Response Format
 Respond with ONLY a JSON object. No markdown, no code fences, no explanation outside the JSON. Do NOT include a conversational response.
